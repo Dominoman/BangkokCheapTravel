@@ -1,0 +1,8 @@
+# config.py
+APIKEY = "<your kiwi API key>"
+DB_PATH = "db\\db.sqlite"
+DB_ECHO = False
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+SMTP_USERNAME = "<gmail e-mail>"
+SMTP_PASSWORD = "<gmail API key>"
