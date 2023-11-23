@@ -1,13 +1,13 @@
 import smtplib
-
-import json
 from datetime import datetime
 from typing import Any
 
+import pandas as pd
 import requests
 import sqlalchemy as db
-import pandas as pd
+from yattag import Doc
 
+import json
 from config import *
 
 
@@ -29,10 +29,10 @@ def sendmail(recipient: str, subject: str, content):
 
     session = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
     session.ehlo()
-    session.starttls()
-    session.ehlo()
-
-    session.login(SMTP_USERNAME, SMTP_PASSWORD)
+    #session.starttls()
+    #session.ehlo()
+    if SMTP_USERNAME!="":
+        session.login(SMTP_USERNAME, SMTP_PASSWORD)
     session.sendmail(SMTP_USERNAME, recipient, headers + "\r\n\r\n" + content)
     session.quit()
 
@@ -120,7 +120,6 @@ class Database:
             self.conn.execute(insert)
             self.route_add += 1
 
-
     def get_carrier(self, carrier_id: str) -> str:
         for row in self.carriers:
             if row['id'] == carrier_id:
@@ -133,13 +132,37 @@ class Database:
         response = requests.get(url)
         return response.json()
 
+    def get_last_cheap_flight(self, limit: int):
+        # select * from "Itinerary" where importdate = (select max(importdate) from "Itinerary") order by price desc limit 5
+        subselect = db.Select(db.func.max(self.itinerary.c.importdate)).scalar_subquery()
+        select = db.Select(self.itinerary).where(self.itinerary.c.importdate == subselect).order_by(
+            self.itinerary.c.price.desc()).limit(limit)
+        data = pd.read_sql(select, self.conn)
+        return data.to_html()
+
 
 # flight_data = get_flight_data("VIE,BUD", "BKK", "26/12/2023", "31/12/2023", 7, 14, 15)
 
-with open('json/20231003BKK.json', 'r') as fo:
-    flight_data = json.load(fo)
-if 'data' in flight_data.keys():
-    database = Database(DB_PATH, DB_ECHO)
-    database.store_flight_data(datetime.now(), flight_data['data'])
-    print(
-        f"Itinerary:{database.itinerary_all}/{database.itinerary_add}, Route:{database.route_all}/{database.route_add}")
+# with open('json/20231003BKK.json', 'r') as fo:
+#     flight_data = json.load(fo)
+# if 'data' in flight_data.keys():
+#     database = Database(DB_PATH, DB_ECHO)
+#     database.store_flight_data(datetime.now(), flight_data['data'])
+#     print(
+#         f"Itinerary:{database.itinerary_all}/{database.itinerary_add}, Route:{database.route_all}/{database.route_add}")
+
+date = datetime.now()
+database = Database(DB_PATH, DB_ECHO)
+
+doc, tag, text = Doc().tagtext()
+with tag('html'):
+    with tag('body'):
+        with tag('h1'):
+            text('Repjegy keresés')
+        with tag('p'):
+            text(f'Lekérdezés dátuma: {date.strftime("%Y-%m-%d")}')
+            text(database.get_last_cheap_flight(5))
+
+result = doc.getvalue()
+sendmail("laszlo.oravecz@gmail.com", "Finder", result)
+print(result)
