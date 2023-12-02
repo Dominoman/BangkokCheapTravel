@@ -121,10 +121,9 @@ class Database:
             self.route_add += 1
 
     def get_carrier(self, carrier_id: str) -> str:
-        for row in self.carriers:
-            if row['id'] == carrier_id:
-                return row['name']
-        return ""
+        return next(
+            (row['name'] for row in self.carriers if row['id'] == carrier_id), ""
+        )
 
     @staticmethod
     def get_carriers():
